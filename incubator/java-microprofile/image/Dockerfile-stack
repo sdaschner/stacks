@@ -1,43 +1,27 @@
-FROM adoptopenjdk/openjdk8-openj9
-
-USER root
-RUN  apt-get -qq update \
-  && apt-get -qq install -y curl maven \
-  && DEBIAN_FRONTEND=noninteractive apt-get -qq upgrade -y \
-  && apt-get -qq clean \
-  && rm -rf /tmp/* /var/lib/apt/lists/*
+FROM adoptopenjdk/maven-openjdk12-openj9
 
 COPY ./project /project
 WORKDIR /project/
 
 RUN mkdir -p /mvn/repository
-RUN mvn -Dmaven.repo.local=/mvn/repository install dependency:go-offline -DskipTests
+RUN mvn -Dmaven.repo.local=/mvn/repository install liberty:create-server dependency:go-offline -DskipTests
 
 WORKDIR /project/user-app
 
-ENV APPSODY_MOUNTS="src:/project/user-app/src;pom.xml:/project/user-app/pom.xml"
-ENV APPSODY_DEPS=/mvn/repository
+ENV APPSODY_MOUNTS="src:/project/user-app/src;pom.xml:/project/user-app/pom.xml" \
+    APPSODY_DEPS=/mvn/repository \
+    \
+    APPSODY_INSTALL="echo install" \
+    \
+    APPSODY_RUN="mvn -Dmaven.repo.local=/mvn/repository liberty:dev" \
+    APPSODY_RUN_KILL=false \
+    \
+    APPSODY_DEBUG="mvn -Dmaven.repo.local=/mvn/repository liberty:dev -DhotTests=true" \
+    APPSODY_DEBUG_KILL=false \
+    \
+    APPSODY_TEST="mvn -Dmaven.repo.local=/mvn/repository verify" \
+    APPSODY_TEST_KILL=false \
+    \
+    PORT=9080
 
-# ENV APPSODY_WATCH_DIR=/project/src
-# ENV APPSODY_WATCH_IGNORE_DIR=
-# ENV APPSODY_WATCH_REGEX=""
-
-ENV APPSODY_INSTALL="mvn -Dmaven.repo.local=/mvn/repository install -DskipTests"
-
-ENV APPSODY_RUN="../validate.sh && mvn -Dmaven.repo.local=/mvn/repository liberty:run"
-ENV APPSODY_RUN_ON_CHANGE="mvn -Dmaven.repo.local=/mvn/repository package -DskipTests"
-ENV APPSODY_RUN_KILL=false
-
-ENV APPSODY_DEBUG="../validate.sh && mvn -Dmaven.repo.local=/mvn/repository liberty:debug"
-ENV APPSODY_DEBUG_ON_CHANGE="mvn -Dmaven.repo.local=/mvn/repository package -DskipTests"
-ENV APPSODY_DEBUG_KILL=false
-
-ENV APPSODY_TEST="../validate.sh && mvn -Dmaven.repo.local=/mvn/repository verify"
-ENV APPSODY_TEST_ON_CHANGE=""
-ENV APPSODY_TEST_KILL=false
-
-ENV PORT=9080
-
-EXPOSE 9080
-EXPOSE 9443
-EXPOSE 7777
+EXPOSE 9080 9443 7777
